@@ -5,6 +5,7 @@ Streamlit interface for the buy-and-bill coverage verifier.
 Run: streamlit run src/app.py
 """
 import os
+from pathlib import Path
 from constants import Constants
 import streamlit as st
 import sqlite3
@@ -15,7 +16,8 @@ from calculator_engine import (
 )
 import dotenv
 
-dotenv.load_dotenv()
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+dotenv.load_dotenv(dotenv_path=ENV_PATH)
 
 
 def risk_tooltip(risk_level, breakeven):

@@ -1,11 +1,13 @@
 
 
+from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, Session
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from .env file
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH)  # Load environment variables from .env file
 
 
 class DatabaseConnection():
