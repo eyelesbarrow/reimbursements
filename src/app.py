@@ -401,7 +401,9 @@ with tab1:
                     st.divider()
 
                     # ---- Product Cards ----
-                    for r in results:
+
+                    for idx, r in enumerate(results):
+                        
                         status_icons = {
                             "covered": "✅",
                             "pa_required": "⚠️",
@@ -575,8 +577,8 @@ with tab1:
                             # Select for appeal
                             if st.button(
                                 f"📋 Select {r['hcpcs']} for appeal",
-                                key=f"select_{r['hcpcs']}",
-                            ):
+                                key=f"select_{idx}",  # Simple unique key
+                                ):
                                 patient = PatientCase(
                                     payer_id=payer_id,
                                     line_of_business=line_of_business,
