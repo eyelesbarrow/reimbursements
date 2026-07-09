@@ -17,6 +17,6 @@ class Constants:
         os.path.dirname(os.path.abspath(__file__)),
         "..",
         "data",
-        "reimbursement.db"
+        "reimbursements.db"
     )
 

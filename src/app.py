@@ -60,7 +60,8 @@ def risk_tooltip(risk_level, breakeven):
 # ---------------------------------------------------------------------------
 
 # Point to your database file (adjust path as needed)
-#DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reimbursement.db")
+#DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "reimbursements.db")
+
 DB_PATH = Constants.DB_PATH  # Use the path from constants.py
 
 
