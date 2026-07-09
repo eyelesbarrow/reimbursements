@@ -194,32 +194,51 @@ def get_drug_display_name(hcpcs):
     return str(row[0]) if row and row[0] else None
 
 
+@st.cache_data(ttl=300)
 def run_product_comparison(payer_id, hcpcs, line_of_business, weight_kg,
-                            dosing_mg_per_kg, use_qpp, acquisition_override):
+                            dosing_mg_per_kg, use_qpp,  acquisition_override):
     """
     Run the calc engine for a specific drug and return results
     for all products under that HCPCS for the given payer.
     """
     conn = get_connection()
 
-    # Only return coverage rules for the exact HCPCS/drug requested.
-    # If that product is not present in the payer's policy, do not show
-    # unrelated products from the same payer.
+    # Use LEFT JOIN to always return the drug even if no coverage policy exists
     rows = conn.execute(
-        """SELECT hcpcs, preferred, pa_required, preferred_alt_hcpcs,
-                  site_of_care_pref, policy_url, notes
-           FROM coverage_policy
-           WHERE payer_id = ? AND hcpcs = ? AND line_of_business = ?""",
-        (payer_id, hcpcs, line_of_business),
+        """SELECT 
+            cp.hcpcs, 
+            cp.preferred, 
+            cp.pa_required, 
+            cp.preferred_alt_hcpcs,
+            cp.site_of_care_pref, 
+            cp.policy_url, 
+            cp.notes,
+            cw.DrugName as drug_name,
+            cw._2026_CODE as code
+        FROM asp_ndc_hscp_crosswalk_072026 cw
+        LEFT JOIN coverage_policy cp 
+            ON CAST(cw._2026_CODE AS TEXT) = cp.hcpcs 
+            AND cp.payer_id = ? 
+            AND cp.line_of_business = ?
+        WHERE CAST(cw._2026_CODE AS TEXT) = ?""",
+        (payer_id, line_of_business, hcpcs),
     ).fetchall()
 
     conn.close()
 
     results = []
     for row in rows:
-        product_hcpcs = str(row["hcpcs"])
-        is_preferred = str(row["preferred"]).strip().lower() == "true"
-
+        product_hcpcs = str(row["code"])
+        drug_name = str(row["drug_name"]) if row["drug_name"] else "—"
+        
+        # Check if coverage exists - if all policy fields are None, this is a "no policy" case
+        has_coverage = row["hcpcs"] is not None
+        is_preferred = str(row["preferred"]).strip().lower() == "true" if has_coverage else False
+        #pa_required = str(row["pa_required"]).strip().lower() == "true" if has_coverage else None
+        preferred_alt = str(row["preferred_alt_hcpcs"]) if has_coverage and row["preferred_alt_hcpcs"] else None
+        #policy_url = str(row["policy_url"]) if has_coverage and row["policy_url"] else None
+        
+        # Create patient case - this will still calculate financials using ASP even without policy
         patient = PatientCase(
             payer_id=payer_id,
             line_of_business=line_of_business,
@@ -228,18 +247,29 @@ def run_product_comparison(payer_id, hcpcs, line_of_business, weight_kg,
             dosing_mg_per_kg=dosing_mg_per_kg,
             acquisition_cost_override=acquisition_override,
             use_qpp=use_qpp,
+    
         )
         verdict = calculate_verdict(patient, DB_PATH)
 
-        drug_name = get_drug_display_name(product_hcpcs)
+        # Override verdict status if no coverage exists
+        if not has_coverage:
+            verdict.status = "no_coverage_data"
+            verdict.status_detail = f"Coverage data for {payer_id} not available. Verify manually."
+            verdict.pa_required = None
+            verdict.policy_url = None
+            
+            # Add warning
+            if not verdict.warnings:
+                verdict.warnings = []
+            verdict.warnings.append(f"⚠️ No coverage policy found for {payer_id} - {product_hcpcs}. Check payer website.")
 
         results.append({
             "hcpcs": product_hcpcs,
-            "drug_name": drug_name or "—",
+            "drug_name": drug_name,
             "preferred": is_preferred,
             "status": verdict.status,
             "status_detail": verdict.status_detail,
-            "preferred_alt": verdict.preferred_hcpcs,
+            "preferred_alt": preferred_alt,
             "allowed_amount": verdict.allowed_amount,
             "acquisition_cost": verdict.acquisition_cost,
             "net_margin": verdict.net_margin,
@@ -254,34 +284,10 @@ def run_product_comparison(payer_id, hcpcs, line_of_business, weight_kg,
             "policy_url": verdict.policy_url,
             "warnings": verdict.warnings,
             "sequester_applied": verdict.sequester_applied,
+            "has_coverage": has_coverage,  # New flag for UI
         })
 
     return results
-
-
-def _get_drug_class(hcpcs, conn):
-    """Try to determine the drug class from the HCPCS code."""
-    # For infliximab: J1745 is originator, biosimilars are Q5103, Q5104, Q5121
-    # We can look for related products in the crosswalk
-    row = conn.execute(
-        """SELECT ShortDescription FROM asp_ndc_hscp_crosswalk_072026
-           WHERE CAST("_2026_CODE" AS TEXT) = ? LIMIT 1""",
-        (hcpcs,),
-    ).fetchone()
-    if row:
-        desc = str(row[0]).lower()
-        if "infliximab" in desc:
-            return "infliximab"
-        if "bevacizumab" in desc:
-            return "bevacizumab"
-        if "trastuzumab" in desc:
-            return "trastuzumab"
-        if "rituximab" in desc:
-            return "rituximab"
-        if "immune globulin" in desc or "ivig" in desc:
-            return "immune_globulin"
-    return None
-
 
 # ---------------------------------------------------------------------------
 # Sidebar — Inputs
