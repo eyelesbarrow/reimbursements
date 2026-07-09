@@ -3,7 +3,7 @@ import sqlite3
 import math
 import re
 from datetime import date, datetime
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, Tuple
 from constants import Constants
 from models import (
     PatientCase,
