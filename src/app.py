@@ -202,7 +202,9 @@ def run_product_comparison(payer_id, hcpcs, line_of_business, weight_kg,
     """
     conn = get_connection()
 
-    # Get all coverage rules for this payer + drug combination
+    # Only return coverage rules for the exact HCPCS/drug requested.
+    # If that product is not present in the payer's policy, do not show
+    # unrelated products from the same payer.
     rows = conn.execute(
         """SELECT hcpcs, preferred, pa_required, preferred_alt_hcpcs,
                   site_of_care_pref, policy_url, notes
@@ -210,23 +212,6 @@ def run_product_comparison(payer_id, hcpcs, line_of_business, weight_kg,
            WHERE payer_id = ? AND hcpcs = ? AND line_of_business = ?""",
         (payer_id, hcpcs, line_of_business),
     ).fetchall()
-
-    if not rows:
-        # Try broader search — any HCPCS starting with the same letter?
-        # (e.g., if user enters 'J1745', also show biosimilars Q5103, Q5104, Q5121)
-        drug_class = _get_drug_class(hcpcs, conn)
-        if drug_class:
-            rows = conn.execute(
-                """SELECT hcpcs, preferred, pa_required, preferred_alt_hcpcs,
-                          site_of_care_pref, policy_url, notes
-                   FROM coverage_policy
-                   WHERE payer_id = ? AND line_of_business = ? AND hcpcs IN (
-                       SELECT DISTINCT hcpcs FROM coverage_policy
-                       WHERE payer_id = ? AND line_of_business = ?
-                   )
-                   ORDER BY preferred DESC, hcpcs""",
-                (payer_id, line_of_business, payer_id, line_of_business),
-            ).fetchall()
 
     conn.close()
 
