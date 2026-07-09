@@ -6,8 +6,16 @@ from sqlalchemy.orm import sessionmaker, Session
 import os
 from dotenv import load_dotenv
 
-ENV_PATH = Path(__file__).resolve().parent / ".env"
-load_dotenv(dotenv_path=ENV_PATH)  # Load environment variables from .env file
+ENV_PATHS = [
+    Path(__file__).resolve().parent / ".env",
+    Path(__file__).resolve().parent.parent / ".env",
+]
+for env_path in ENV_PATHS:
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)  # Load environment variables from .env file
+        break
+else:
+    load_dotenv()
 
 
 class DatabaseConnection():

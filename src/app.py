@@ -16,8 +16,16 @@ from calculator_engine import (
 )
 import dotenv
 
-ENV_PATH = Path(__file__).resolve().parent / ".env"
-dotenv.load_dotenv(dotenv_path=ENV_PATH)
+ENV_PATHS = [
+    Path(__file__).resolve().parent / ".env",
+    Path(__file__).resolve().parent.parent / ".env",
+]
+for env_path in ENV_PATHS:
+    if env_path.exists():
+        dotenv.load_dotenv(dotenv_path=env_path)
+        break
+else:
+    dotenv.load_dotenv()
 
 
 def risk_tooltip(risk_level, breakeven):
