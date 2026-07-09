@@ -28,6 +28,26 @@ else:
     dotenv.load_dotenv()
 
 
+def get_login_credentials():
+    """Return the configured username and password from several common sources."""
+    username = None
+    password = None
+
+    try:
+        secrets = st.secrets
+        username = secrets.get("USERNAME") or secrets.get("username")
+        password = secrets.get("PASSWORD") or secrets.get("password")
+    except Exception:
+        pass
+
+    if not username:
+        username = os.getenv("USERNAME")
+    if not password:
+        password = os.getenv("PASSWORD")
+
+    return username, password
+
+
 def risk_tooltip(risk_level, breakeven):
     """Return a tooltip string explaining the risk level."""
     if risk_level == "LOW":
@@ -78,9 +98,7 @@ def get_connection():
 def check_password():
     """Returns True if the user enters correct credentials."""
 
-    # These are your demo credentials — change them
-    VALID_USERNAME = os.getenv("USERNAME")
-    VALID_PASSWORD = os.getenv("PASSWORD")
+    VALID_USERNAME, VALID_PASSWORD = get_login_credentials()
 
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
