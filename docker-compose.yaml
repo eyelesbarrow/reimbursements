@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data              # Mount data directory for persistence
+      - ./.streamlit:/app/.streamlit   # Mount config
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+    restart: unless-stopped
