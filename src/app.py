@@ -437,19 +437,15 @@ with tab1:
                                 # ---- Show the preferred alternative prominently ----
                                 if r["preferred_alt"]:
                                     alt_name = get_drug_display_name(r["preferred_alt"])
-
-                                    # Find the preferred product in the results
                                     alt_data = next(
                                         (item for item in results if item["hcpcs"] == r["preferred_alt"]),
-                                        None
+                                        None,
                                     )
 
-                                    # Highlighted callout box
                                     with st.container(border=True):
                                         st.markdown(f"### 💡 Use **{r['preferred_alt']} — {alt_name}** instead")
 
                                         if alt_data:
-                                            # Why switch?
                                             reasons = []
                                             if alt_data["preferred"]:
                                                 reasons.append("✅ Preferred by this payer — lower denial risk")
@@ -471,7 +467,6 @@ with tab1:
                                             for reason in reasons:
                                                 st.write(reason)
 
-                                            # Side-by-side comparison
                                             st.divider()
                                             st.caption("**Side-by-side comparison:**")
 
@@ -504,8 +499,46 @@ with tab1:
                                         else:
                                             st.write(f"Switch to **{r['preferred_alt']} — {alt_name}** for preferred coverage under this payer.")
 
+                            elif not r["preferred"] and not r["preferred_alt"]:
+                                # Product is not preferred, but no specific alternative exists
+                                # This is the "equal coverage" case (e.g., Aetna bevacizumab)
+                                # OR the "excluded, try all preferred" case (e.g., UHC IVIG non-preferred)
+
+                                # Check if there ARE preferred products in the results
+                                preferred_in_results = [item for item in results if item["preferred"]]
+
+                                if preferred_in_results:
+                                    # There are preferred alternatives — list them
+                                    with st.container(border=True):
+                                        st.markdown("### 💡 Preferred alternatives available")
+                                        st.write("This product is not preferred. Consider switching to:")
+                                        for pref in preferred_in_results:
+                                            pref_name = get_drug_display_name(pref["hcpcs"]) or "—"
+                                            st.write(f"• **{pref['hcpcs']} — {pref_name}** (Net: ${pref['net_margin']:.2f}, Risk: {pref['risk_level']})")
+                                else:
+                                    # No preferred products at all — everything is equal
+                                    st.info(
+                                        "ℹ️ All products in this class are treated equally under this payer's policy. "
+                                        "No specific preferred alternative exists. Prior authorization is required for all products."
+                                    )
+
                             elif r["status"] == "pa_required":
-                                st.warning(f"⚠️ {r['status_detail']}")
+                                if r["preferred"]:
+                                    st.warning(f"⚠️ {r['status_detail']}")
+                                else:
+                                    # Not preferred, but status is still PA_REQUIRED (not WRONG_PRODUCT)
+                                    st.warning(f"⚠️ {r['status_detail']}")
+
+                                    # Check if there are preferred alternatives
+                                    preferred_in_results = [item for item in results if item["preferred"]]
+                                    if preferred_in_results:
+                                        with st.container(border=True):
+                                            st.markdown("### 💡 Preferred alternatives available")
+                                            st.write("While this product may be covered with PA, preferred options exist:")
+                                            for pref in preferred_in_results:
+                                                pref_name = get_drug_display_name(pref["hcpcs"]) or "—"
+                                                st.write(f"• **{pref['hcpcs']} — {pref_name}** (Net: ${pref['net_margin']:.2f}, Risk: {pref['risk_level']})")
+
                             elif r["status"] == "covered":
                                 st.success(f"✅ {r['status_detail']}")
                             else:
